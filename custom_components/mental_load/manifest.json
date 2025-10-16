@@ -1,6 +1,7 @@
 {
   "domain": "mental_load",
   "name": "Mental load Assistant",
+  "version": "0.1.0",
   "codeowners": ["@Sduniii"],
   "config_flow": true,
   "documentation": "https://www.home-assistant.io/integrations/mental_load",
