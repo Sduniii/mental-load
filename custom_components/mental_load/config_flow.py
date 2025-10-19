@@ -12,7 +12,7 @@ from homeassistant.helpers.config_entry_oauth2_flow import (
 )
 import voluptuous as vol
 
-from .const import DOMAIN, OAUTH2_SCOPES
+from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ class MentalLoadOptionsFlowHandler(OptionsFlow):
         """Initialisiert den Optionen-Flow."""
         self.config_entry = config_entry
 
-    async def async_step_init__(
+    async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Verwaltet die Optionen für die LLM-Konfiguration."""
@@ -74,24 +74,25 @@ class MentalLoadOAuth2FlowHandler(AbstractOAuth2FlowHandler, domain=DOMAIN):
     ) -> ConfigFlowResult:
         """Behandelt den vom Benutzer initiierten Flow, um die Anmeldedaten zu sammeln."""
         if user_input is not None:
-            try:
-                implementation = LocalOAuth2Implementation(
-                    self.hass,
-                    DOMAIN,
-                    user_input["client_id"],
-                    user_input["client_secret"],
-                    "https://accounts.google.com/o/oauth2/v2/auth",
-                    "https://oauth2.googleapis.com/token",
-                    # --- KORREKTUR HIER ---
-                    # Der überflüssige 8. Parameter für den Scope wurde entfernt.
-                )
-                self._flow_impl = implementation
-                return await self.async_step_auth()
+            # Erstellt die "Anleitung" für den OAuth-Flow
+            implementation = LocalOAuth2Implementation(
+                self.hass,
+                DOMAIN,
+                user_input["client_id"],
+                user_input["client_secret"],
+                "https://accounts.google.com/o/oauth2/v2/auth",
+                "https://oauth2.googleapis.com/token",
+            )
+            
+            # --- KORREKTUR HIER ---
+            # Wir initialisieren die Basisklasse mit der erstellten Implementierung.
+            # Dies ist der offizielle Weg, um self.flow_impl korrekt zu setzen.
+            super().__init__(implementation=implementation)
 
-            except Exception as ex:
-                _LOGGER.exception("Unerwarteter Fehler im OAuth-Flow: %s", ex)
-                return self.async_abort(reason="unknown")
+            # Startet den Authentifizierungsschritt, der den Benutzer zu Google weiterleitet
+            return await self.async_step_auth()
 
+        # Zeigt das Formular an, um die Google Client ID/Secret vom Nutzer zu erfragen
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema(
