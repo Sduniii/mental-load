@@ -31,19 +31,18 @@ class MentalLoadTodoEntity(CoordinatorEntity[MentalLoadCoordinator], TodoListEnt
         """Initialize the Mental Load to-do list."""
         super().__init__(coordinator)
         self._attr_unique_id = f"{entry.entry_id}_mental_load"
-
+    
     @property
     def todo_items(self) -> list[TodoItem] | None:
         """Return the to-do items from the coordinator."""
-        if not self.coordinator.data:
+        if self.coordinator.data is None:
             return None
 
-        # KORREKTUR: Die for-Schleife wurde durch eine List Comprehension ersetzt.
         return [
             TodoItem(
-                summary=event.get("summary", "Unbenannter Termin"),
+                summary=task["summary"],
                 status=TodoItemStatus.NEEDS_ACTION,
-                uid=event["id"],
+                uid=task["uid"],
             )
-            for event in self.coordinator.data
+            for task in self.coordinator.data
         ]

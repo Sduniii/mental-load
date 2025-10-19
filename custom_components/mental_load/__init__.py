@@ -30,6 +30,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Leite das Setup an die To-Do-Plattform weiter
     await hass.config_entries.async_forward_entry_setups(entry, ["todo"])
 
+    entry.async_on_unload(entry.add_update_listener(options_update_listener))
+
     return True
 
 
@@ -39,3 +41,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.data[DOMAIN].pop(entry.entry_id)
         return unloaded
     return False
+
+async def options_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Handle options update."""
+    # Lädt die Integration neu, wenn die Optionen geändert werden
+    await hass.config_entries.async_reload(entry.entry_id)
