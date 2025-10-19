@@ -1,61 +1,80 @@
 """Config flow for Mental load Assistant."""
-
 from __future__ import annotations
 
 import logging
 from typing import Any
 
-import voluptuous as vol
-
+from homeassistant.config_entries import ConfigEntry, ConfigFlowResult, OptionsFlow
 from homeassistant.core import callback
-from homeassistant.config_entries import ConfigFlowResult, OptionsFlow, ConfigEntry
 from homeassistant.helpers.config_entry_oauth2_flow import (
     AbstractOAuth2FlowHandler,
     LocalOAuth2Implementation,
 )
+import voluptuous as vol
 
-from .const import DOMAIN
+from .const import DOMAIN, OAUTH2_SCOPES
 
+# ======================================================================================
+# === 1. Optionen-Flow (für LLM API-Schlüssel nach der Einrichtung)
+# ======================================================================================
 class MentalLoadOptionsFlowHandler(OptionsFlow):
-    """Handle an options flow for Mental Load."""
+    """Verwaltet den Optionen-Dialog für den Mental Load Assistant."""
 
     def __init__(self, config_entry: ConfigEntry) -> None:
-        """Initialize options flow."""
+        """Initialisiert den Optionen-Flow."""
         self.config_entry = config_entry
 
-    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        """Manage the options."""
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Verwaltet die Optionen für die LLM-Konfiguration."""
         if user_input is not None:
+            # Speichert die Eingabe in den Optionen des Konfigurationseintrags
             return self.async_create_entry(title="", data=user_input)
 
+        # Zeigt das Formular an, um den API-Schlüssel zu bearbeiten
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema(
                 {
+                    # Das Feld wird mit dem bereits gespeicherten Wert vorausgefüllt
                     vol.Required(
                         "llm_api_key",
-                        default=self.config_entry.options.get("llm_api_key"),
+                        default=self.config_entry.options.get("llm_api_key", ""),
                     ): str,
                 }
             ),
         )
 
+# ======================================================================================
+# === 2. Haupt-Konfigurations-Flow (für die Ersteinrichtung mit Google)
+# ======================================================================================
 class MentalLoadOAuth2FlowHandler(AbstractOAuth2FlowHandler, domain=DOMAIN):
-    """Handle an OAuth2 config flow for Mental load Assistant."""
+    """Verwaltet den OAuth2-Konfigurations-Flow für den Mental Load Assistant."""
 
     DOMAIN = DOMAIN
     VERSION = 1
 
     @property
     def logger(self) -> logging.Logger:
-        """Return logger."""
+        """Gibt den Logger zurück."""
         return logging.getLogger(__name__)
+
+    # Diese Methode verbindet den Haupt-Flow mit dem Optionen-Flow
+    @staticmethod
+    @callback
+    def async_get_options_flow(
+        config_entry: ConfigEntry,
+    ) -> MentalLoadOptionsFlowHandler:
+        """Gibt den Optionen-Flow für diesen Handler zurück."""
+        return MentalLoadOptionsFlowHandler(config_entry)
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Handle a flow initiated by the user to collect credentials."""
+        """Behandelt den vom Benutzer initiierten Flow, um die Anmeldedaten zu sammeln."""
         if user_input is not None:
+            # Erstellt die "Anleitung" für den OAuth-Flow
             implementation = LocalOAuth2Implementation(
                 self.hass,
                 DOMAIN,
@@ -63,11 +82,16 @@ class MentalLoadOAuth2FlowHandler(AbstractOAuth2FlowHandler, domain=DOMAIN):
                 user_input["client_secret"],
                 "https://accounts.google.com/o/oauth2/v2/auth",
                 "https://oauth2.googleapis.com/token",
+                " ".join(OAUTH2_SCOPES), # Scopes müssen hier übergeben werden
             )
-            self.async_register_implementation(self.hass, implementation)
 
+            # KORREKTUR: Setzt die Implementierung direkt, um den Absturz zu verhindern
+            self._flow_impl = implementation
+
+            # Startet den Authentifizierungsschritt, der den Benutzer zu Google weiterleitet
             return await self.async_step_auth()
 
+        # Zeigt das Formular an, um die Google Client ID/Secret vom Nutzer zu erfragen
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema(
@@ -78,13 +102,8 @@ class MentalLoadOAuth2FlowHandler(AbstractOAuth2FlowHandler, domain=DOMAIN):
             ),
         )
 
-    async def async_oauth_create_entry(self, data: dict[str, Any]) -> ConfigFlowResult:
-        """Create an entry for the flow."""
-        return self.async_create_entry(title="Mental load Assistant", data=data)
-    
-    @staticmethod
-    @callback
-    def async_get_options_flow(config_entry: ConfigEntry) -> MentalLoadOptionsFlowHandler:
-        """Get the options flow for this handler."""
-        return MentalLoadOptionsFlowHandler(config_entry)
-
+    async def async_oauth_create_entry(
+        self, data: dict[str, Any]
+    ) -> ConfigFlowResult:
+        """Erstellt einen Konfigurationseintrag nach erfolgreicher Authentifizierung."""
+        return self.async_create_entry(title="Mental Load Assistant", data=data)
