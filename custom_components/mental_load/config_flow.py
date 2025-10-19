@@ -14,11 +14,12 @@ import voluptuous as vol
 
 from .const import DOMAIN, OAUTH2_SCOPES
 
-# WICHTIG: Den Logger am Anfang definieren
 _LOGGER = logging.getLogger(__name__)
 
 
-# ... (dein Options-Flow bleibt unverändert) ...
+# ======================================================================================
+# === Optionen-Flow (für LLM API-Schlüssel)
+# ======================================================================================
 class MentalLoadOptionsFlowHandler(OptionsFlow):
     """Verwaltet den Optionen-Dialog für den Mental Load Assistant."""
 
@@ -26,7 +27,7 @@ class MentalLoadOptionsFlowHandler(OptionsFlow):
         """Initialisiert den Optionen-Flow."""
         self.config_entry = config_entry
 
-    async def async_step_init(
+    async def async_step_init__(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Verwaltet die Optionen für die LLM-Konfiguration."""
@@ -46,6 +47,9 @@ class MentalLoadOptionsFlowHandler(OptionsFlow):
         )
 
 
+# ======================================================================================
+# === Haupt-Konfigurations-Flow (für Google)
+# ======================================================================================
 class MentalLoadOAuth2FlowHandler(AbstractOAuth2FlowHandler, domain=DOMAIN):
     """Verwaltet den OAuth2-Konfigurations-Flow für den Mental Load Assistant."""
 
@@ -70,7 +74,6 @@ class MentalLoadOAuth2FlowHandler(AbstractOAuth2FlowHandler, domain=DOMAIN):
     ) -> ConfigFlowResult:
         """Behandelt den vom Benutzer initiierten Flow, um die Anmeldedaten zu sammeln."""
         if user_input is not None:
-            # =================== DEBUGGING-BLOCK START ===================
             try:
                 implementation = LocalOAuth2Implementation(
                     self.hass,
@@ -79,17 +82,15 @@ class MentalLoadOAuth2FlowHandler(AbstractOAuth2FlowHandler, domain=DOMAIN):
                     user_input["client_secret"],
                     "https://accounts.google.com/o/oauth2/v2/auth",
                     "https://oauth2.googleapis.com/token",
-                    " ".join(OAUTH2_SCOPES),
+                    # --- KORREKTUR HIER ---
+                    # Der überflüssige 8. Parameter für den Scope wurde entfernt.
                 )
                 self._flow_impl = implementation
                 return await self.async_step_auth()
 
             except Exception as ex:
-                # Wenn irgendein Fehler auftritt, protokollieren wir ihn hier!
                 _LOGGER.exception("Unerwarteter Fehler im OAuth-Flow: %s", ex)
-                # Zeigt dem Nutzer eine saubere Fehlermeldung statt "Unknown error"
-                return self.async_abort(reason="unknown_error")
-            # =================== DEBUGGING-BLOCK ENDE ====================
+                return self.async_abort(reason="unknown")
 
         return self.async_show_form(
             step_id="user",
