@@ -5,10 +5,10 @@ import logging
 from datetime import timedelta
 import uuid
 
-import google.generativeai as genai
 from googleapiclient.discovery import build
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.config_entry_oauth2_flow import OAuth2Session
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
@@ -27,9 +27,11 @@ Titel: {summary}
 Beschreibung: {description}
 """
 
+GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={api_key}"
 
-class MentalLoadCoordinator(DataUpdateCoordinator[list]):
-    """A coordinator to fetch calendar events."""
+
+class MentalLoadCoordinator(DataUpdateCoordinator[list[dict]]):
+    """A coordinator to fetch and analyze calendar events."""
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry, session: OAuth2Session) -> None:
         """Initialize the coordinator."""
@@ -41,16 +43,14 @@ class MentalLoadCoordinator(DataUpdateCoordinator[list]):
         )
         self.session = session
         self.entry = entry
+        self.websession = async_get_clientsession(hass)
 
     async def _async_update_data(self) -> list[dict]:
         """Fetch and process calendar events."""
         api_key = self.entry.options.get("llm_api_key")
         if not api_key:
-            _LOGGER.error("LLM API key is not configured")
+            _LOGGER.error("Gemini API key is not configured")
             return []
-
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel("gemini-pro")
 
         events = await self.hass.async_add_executor_job(self._fetch_events)
         all_tasks = []
@@ -59,11 +59,16 @@ class MentalLoadCoordinator(DataUpdateCoordinator[list]):
             summary = event.get("summary", "Unbenannter Termin")
             description = event.get("description", "")
             
-            prompt = PROMPT.format(summary=summary, description=description)
+            prompt_text = PROMPT.format(summary=summary, description=description)
             
+            payload = {"contents": [{"parts": [{"text": prompt_text}]}]}
+
             try:
-                response = await model.generate_content_async(prompt)
-                tasks_text = response.text
+                async with self.websession.post(GEMINI_API_URL.format(api_key=api_key), json=payload) as response:
+                    response.raise_for_status()
+                    result = await response.json()
+                    tasks_text = result["candidates"][0]["content"]["parts"][0]["text"]
+
             except Exception as e:
                 _LOGGER.error("Error calling Gemini API for event '%s': %s", summary, e)
                 continue
@@ -71,16 +76,15 @@ class MentalLoadCoordinator(DataUpdateCoordinator[list]):
             if "NICHTS ZU TUN" in tasks_text:
                 continue
 
-            # Erstelle eine Aufgabe für jede Zeile in der KI-Antwort
             for task_summary in tasks_text.strip().split("\n"):
-                if task_summary: # Ignoriere leere Zeilen
+                task_summary = task_summary.lstrip("- ").strip() # Bereinigt Listenzeichen
+                if task_summary:
                     all_tasks.append({
                         "summary": task_summary,
-                        "uid": str(uuid.uuid4()), # Eindeutige ID für jede Aufgabe
+                        "uid": str(uuid.uuid4()),
                         "event_id": event["id"],
                         "event_summary": summary,
                     })
-
         return all_tasks
 
     def _fetch_events(self) -> list:
