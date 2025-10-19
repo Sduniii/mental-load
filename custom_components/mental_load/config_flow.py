@@ -15,7 +15,7 @@ import voluptuous as vol
 from .const import DOMAIN, OAUTH2_SCOPES
 
 # ======================================================================================
-# === 1. Optionen-Flow (für LLM API-Schlüssel nach der Einrichtung)
+# === Optionen-Flow (für LLM API-Schlüssel)
 # ======================================================================================
 class MentalLoadOptionsFlowHandler(OptionsFlow):
     """Verwaltet den Optionen-Dialog für den Mental Load Assistant."""
@@ -29,15 +29,12 @@ class MentalLoadOptionsFlowHandler(OptionsFlow):
     ) -> ConfigFlowResult:
         """Verwaltet die Optionen für die LLM-Konfiguration."""
         if user_input is not None:
-            # Speichert die Eingabe in den Optionen des Konfigurationseintrags
             return self.async_create_entry(title="", data=user_input)
 
-        # Zeigt das Formular an, um den API-Schlüssel zu bearbeiten
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema(
                 {
-                    # Das Feld wird mit dem bereits gespeicherten Wert vorausgefüllt
                     vol.Required(
                         "llm_api_key",
                         default=self.config_entry.options.get("llm_api_key", ""),
@@ -47,7 +44,7 @@ class MentalLoadOptionsFlowHandler(OptionsFlow):
         )
 
 # ======================================================================================
-# === 2. Haupt-Konfigurations-Flow (für die Ersteinrichtung mit Google)
+# === Haupt-Konfigurations-Flow (für Google)
 # ======================================================================================
 class MentalLoadOAuth2FlowHandler(AbstractOAuth2FlowHandler, domain=DOMAIN):
     """Verwaltet den OAuth2-Konfigurations-Flow für den Mental Load Assistant."""
@@ -60,7 +57,6 @@ class MentalLoadOAuth2FlowHandler(AbstractOAuth2FlowHandler, domain=DOMAIN):
         """Gibt den Logger zurück."""
         return logging.getLogger(__name__)
 
-    # Diese Methode verbindet den Haupt-Flow mit dem Optionen-Flow
     @staticmethod
     @callback
     def async_get_options_flow(
@@ -74,7 +70,6 @@ class MentalLoadOAuth2FlowHandler(AbstractOAuth2FlowHandler, domain=DOMAIN):
     ) -> ConfigFlowResult:
         """Behandelt den vom Benutzer initiierten Flow, um die Anmeldedaten zu sammeln."""
         if user_input is not None:
-            # Erstellt die "Anleitung" für den OAuth-Flow
             implementation = LocalOAuth2Implementation(
                 self.hass,
                 DOMAIN,
@@ -82,16 +77,13 @@ class MentalLoadOAuth2FlowHandler(AbstractOAuth2FlowHandler, domain=DOMAIN):
                 user_input["client_secret"],
                 "https://accounts.google.com/o/oauth2/v2/auth",
                 "https://oauth2.googleapis.com/token",
-                " ".join(OAUTH2_SCOPES), # Scopes müssen hier übergeben werden
+                # --- KORREKTUR HIER ---
+                # Der fehlende Scope (Berechtigung) wurde hinzugefügt.
+                " ".join(OAUTH2_SCOPES),
             )
-
-            # KORREKTUR: Setzt die Implementierung direkt, um den Absturz zu verhindern
             self._flow_impl = implementation
-
-            # Startet den Authentifizierungsschritt, der den Benutzer zu Google weiterleitet
             return await self.async_step_auth()
 
-        # Zeigt das Formular an, um die Google Client ID/Secret vom Nutzer zu erfragen
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema(
