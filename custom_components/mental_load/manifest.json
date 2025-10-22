@@ -1,13 +1,14 @@
 {
   "domain": "mental_load",
   "name": "Mental load Assistant",
-  "version": "0.1.0",
+  "documentation": "https://github.com/Sduniii/mental-load",
+  "issue_tracker": "https://github.com/Sduniii/mental-load/issues",
   "codeowners": ["@Sduniii"],
   "config_flow": true,
-  "documentation": "https://www.home-assistant.io/integrations/mental_load",
   "iot_class": "cloud_polling",
   "requirements": [
     "google-api-python-client==2.100.0",
     "google-auth-oauthlib==1.0.0"
-  ]
+  ],
+  "application_credentials": ["google"]
 }

@@ -1,8 +1,11 @@
 """Todo platform for the Mental load Assistant integration."""
-
 from __future__ import annotations
 
-from homeassistant.components.todo import TodoItem, TodoItemStatus, TodoListEntity
+from homeassistant.components.todo import (
+    TodoItem,
+    TodoItemStatus,
+    TodoListEntity,
+)
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
@@ -31,7 +34,7 @@ class MentalLoadTodoEntity(CoordinatorEntity[MentalLoadCoordinator], TodoListEnt
         """Initialize the Mental Load to-do list."""
         super().__init__(coordinator)
         self._attr_unique_id = f"{entry.entry_id}_mental_load"
-    
+
     @property
     def todo_items(self) -> list[TodoItem] | None:
         """Return the to-do items from the coordinator."""

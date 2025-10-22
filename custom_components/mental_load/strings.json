@@ -2,16 +2,22 @@
   "config": {
     "step": {
       "user": {
-        "title": "Mental load Assistant verbinden",
-        "description": "Bitte gib die OAuth Client ID und das Secret aus deiner Google Cloud Console ein. Eine Anleitung zur Erstellung findest du in der Dokumentation der Integration.",
-        "data": {
-          "client_id": "Client ID",
-          "client_secret": "Client Secret"
-        }
+        "title": "Mental load Assistant"
       }
     },
     "abort": {
       "already_configured": "Dieses Google-Konto ist bereits konfiguriert."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "LLM-Anbieter konfigurieren",
+        "description": "Bitte gib deinen API-Schlüssel für Google Gemini ein.",
+        "data": {
+          "llm_api_key": "Gemini API-Schlüssel"
+        }
+      }
     }
   },
   "entity": {

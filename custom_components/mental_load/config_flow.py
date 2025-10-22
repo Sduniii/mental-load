@@ -9,7 +9,7 @@ from homeassistant.core import callback
 from homeassistant.helpers import config_entry_oauth2_flow
 import voluptuous as vol
 
-from .const import DOMAIN, OAUTH2_SCOPES
+from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -31,6 +31,7 @@ class MentalLoadOptionsFlowHandler(OptionsFlow):
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
 
+        # Zeigt das Formular an (Texte werden aus strings.json geladen)
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema(
@@ -55,14 +56,12 @@ class MentalLoadOAuth2FlowHandler(
     DOMAIN = DOMAIN
     VERSION = 1
 
-    # Temporärer Speicher für unsere Login-Anleitung
-    implementation: config_entry_oauth2_flow.LocalOAuth2Implementation
-
     @property
     def logger(self) -> logging.Logger:
         """Gibt den Logger zurück."""
         return _LOGGER
 
+    # Verbindet den Haupt-Flow mit dem Optionen-Flow
     @staticmethod
     @callback
     def async_get_options_flow(
@@ -74,39 +73,17 @@ class MentalLoadOAuth2FlowHandler(
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Behandelt den vom Benutzer initiierten Flow, um die Anmeldedaten zu sammeln."""
-        if user_input is None:
-            # Zeigt das Formular an, um die Google Client ID/Secret vom Nutzer zu erfragen
-            return self.async_show_form(
-                step_id="user",
-                data_schema=vol.Schema(
-                    {
-                        vol.Required("client_id"): str,
-                        vol.Required("client_secret"): str,
-                    }
-                ),
-            )
+        """
+        Wird aufgerufen, wenn der Nutzer die Integration hinzufügt.
+        Da wir Application Credentials verwenden, leiten wir den Nutzer
+        direkt zur Authentifizierung weiter.
+        """
+        # Startet den OAuth-Flow. Home Assistant holt sich die
+        # global gespeicherten "Google"-Anmeldedaten.
+        return await self.async_step_auth()
 
-        # --- KORREKTUR HIER ---
-        # 1. Wir erstellen die Login-Anleitung (Implementierung)
-        self.implementation = config_entry_oauth2_flow.LocalOAuth2Implementation(
-            self.hass,
-            DOMAIN,
-            user_input["client_id"],
-            user_input["client_secret"],
-            "https://accounts.google.com/o/oauth2/v2/auth",
-            "https://oauth2.googleapis.com/token",
-            " ".join(OAUTH2_SCOPES),
-        )
-
-        # 2. Wir generieren die Autorisierungs-URL manuell
-        authorize_url = await self.implementation.async_generate_authorize_url()
-
-        # 3. Wir leiten den Nutzer zu dieser URL weiter
-        return self.async_external_step(step_id="auth", url=authorize_url)
-
-    async def async_step_auth(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        """Wird aufgerufen, nachdem der Nutzer von Google zurückkehrt."""
-        # Wir verwenden die eingebaute Logik der Basisklasse, um den Code auszutauschen
-        # und den Konfigurationseintrag zu erstellen.
-        return await self.async_oauth_create_entry(user_input)
+    async def async_oauth_create_entry(
+        self, data: dict[str, Any]
+    ) -> ConfigFlowResult:
+        """Erstellt einen Konfigurationseintrag nach erfolgreicher Authentifizierung."""
+        return self.async_create_entry(title="Mental Load Assistant", data=data)
